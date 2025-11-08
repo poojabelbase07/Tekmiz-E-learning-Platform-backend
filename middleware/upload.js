@@ -23,10 +23,10 @@ const fileFilter = (req, file, cb) => {
     'image/webp': true,
     'video/mp4': true,
     'video/webm': true,
-    'video/quicktime': true, // .mov files
+    'video/quicktime': true,
     'application/pdf': true,
-    'application/vnd.ms-powerpoint': true, // .ppt
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': true // .pptx
+    'application/vnd.ms-powerpoint': true,
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': true
   };
 
   if (allowedTypes[file.mimetype]) {
@@ -44,35 +44,38 @@ const generateFileName = (file) => {
   return `${timestamp}-${uniqueId}${fileExtension}`;
 };
 
-// Multer S3 configuration
-const uploadToS3 = multer({
-  storage: multerS3({
-    s3: s3Client,
-    bucket: process.env.AWS_BUCKET_NAME,
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    metadata: (req, file, cb) => {
-      cb(null, {
-        fieldName: file.fieldname,
-        originalName: file.originalname
-      });
-    },
-    key: (req, file, cb) => {
-      // Organize files by type
-      let folder = 'others';
-      if (file.mimetype.startsWith('image/')) {
-        folder = 'thumbnails';
-      } else if (file.mimetype.startsWith('video/')) {
-        folder = 'videos';
-      } else if (file.mimetype === 'application/pdf') {
-        folder = 'pdfs';
-      } else if (file.mimetype.includes('presentation')) {
-        folder = 'presentations';
-      }
-
-      const fileName = generateFileName(file);
-      cb(null, `${folder}/${fileName}`);
+// Multer S3 Storage Configuration
+const s3Storage = multerS3({
+  s3: s3Client,
+  bucket: process.env.AWS_BUCKET_NAME,
+  acl: 'public-read',
+  contentType: multerS3.AUTO_CONTENT_TYPE,
+  metadata: (req, file, cb) => {
+    cb(null, {
+      fieldName: file.fieldname,
+      originalName: file.originalname
+    });
+  },
+  key: (req, file, cb) => {
+    let folder = 'others';
+    if (file.mimetype.startsWith('image/')) {
+      folder = 'thumbnails';
+    } else if (file.mimetype.startsWith('video/')) {
+      folder = 'videos';
+    } else if (file.mimetype === 'application/pdf') {
+      folder = 'pdfs';
+    } else if (file.mimetype.includes('presentation')) {
+      folder = 'presentations';
     }
-  }),
+
+    const fileName = generateFileName(file);
+    cb(null, `${folder}/${fileName}`);
+  }
+});
+
+// Create multer upload instance
+const uploadToS3 = multer({
+  storage: s3Storage,
   fileFilter: fileFilter,
   limits: {
     fileSize: 500 * 1024 * 1024 // 500MB max file size
