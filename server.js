@@ -18,12 +18,15 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
+// MongoDB Connection - FORCE PRIMARY READ
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  readPreference: 'primary', // Always read most recent data
+  retryWrites: true,
+  w: 'majority' //  Wait for write confirmation
 })
-.then(() => console.log('✅ MongoDB Connected'))
+.then(() => console.log('✅ MongoDB Connected (Primary Read Mode)'))
 .catch((err) => console.error('❌ MongoDB Error:', err));
 
 // Routes

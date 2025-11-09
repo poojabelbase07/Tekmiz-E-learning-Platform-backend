@@ -9,7 +9,6 @@ router.post('/', uploadToS3.single('thumbnail'), async (req, res) => {
   try {
     const { title, description, category, author, authorId } = req.body;
 
-    // Validate required fields
     if (!title || !description || !category || !author || !authorId) {
       return res.status(400).json({
         success: false,
@@ -17,7 +16,6 @@ router.post('/', uploadToS3.single('thumbnail'), async (req, res) => {
       });
     }
 
-    // Check if file was uploaded
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -29,20 +27,24 @@ router.post('/', uploadToS3.single('thumbnail'), async (req, res) => {
     const playlist = new Playlist({
       title,
       description,
-      thumbnail: req.file.location, // S3 URL
+      thumbnail: req.file.location,
       category,
       author,
       authorId
     });
 
-    await playlist.save();
+    // ⭐ SAVE WITH WRITE CONCERN - Wait for confirmation
+    await playlist.save({ w: 'majority', wtimeout: 5000 });
 
-    console.log('✅ Playlist created:', playlist._id);
+    console.log('✅ Playlist created and confirmed:', playlist._id);
+
+    // ⭐ IMMEDIATELY READ BACK TO CONFIRM
+    const confirmedPlaylist = await Playlist.findById(playlist._id);
 
     res.status(201).json({
       success: true,
       message: 'Playlist created successfully',
-      playlist: playlist
+      playlist: confirmedPlaylist // Return confirmed data
     });
 
   } catch (error) {
